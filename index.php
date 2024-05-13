@@ -1,554 +1,150 @@
-<html>
-<title>dbVAST</title>
-<center>
-<img src="images\dbvast.png" height="250" width="1000" >
-<body>
-<br><br>
-
-<table width="1000" CELLPADDING="10">
-<tr>
-<td width="100" rowspan="10" style="vertical-align:top">
-
-<a href="index.php" style="white-space:nowrap"><img src="images\bhome.png"></a>
-<a href="software.php" style="white-space:nowrap"><img src="images\software.png"></a>
-<a href="faq.php" style="white-space:nowrap"><img src="images\faq.png"></a>
-<a href="contact.php" style="white-space:nowrap"><img src="images\bcontact.png"></a>
-
-</td>
-<td  style="vertical-align:top"> 
-<form method="post" name="form1" action="">
-<table width="700" >
-<tr><td ><font size="5">Select shrimp Species : </font>
-
-<select name="species">
-<option value="1">Select</option>
-<option value="2">Penaeus indicus</option>
-<option value="3">Penaeus vannamei</option>
-<!-- <option value="4">Penaeus aztecus</option> -->
-</select>
-
-</td></tr>
-<tr><td ><font size="5"> Paste query sequence :</font></td></tr>
-<tr><td >
-<textarea style="width:100%; height:200" id="seq" name="seq"></textarea></td></tr>
-<tr><td><input type="Submit" name="sub" id="sub" Value="Submit query">
-<input onclick="input()" type="button" value="Load example" id="button"></td><br>
-</tr>
-</table>
-
-
-<?php
-include("cn.php");
-if(isset($_POST['sub']))
-{
-$spsel = $_POST['species'];
-
-$seq = $_POST['seq'];
-mysql_query("insert into seqs(seq) values('$seq')");
-
-##species indicus
-if ($spsel=="1")
-{
- echo "Select a shrimp species from the dropdown";
-}
-if ($spsel=="2")
-{
-$seq = $_POST['seq'];
-$my_file = "query.fasta";
-$handle = fopen($my_file, 'w') or die('Cannot open file:  '.$my_file); //implicitly creates file
-fwrite($handle, $seq);
-fclose($handle);
-
-
-
-exec("blastn -query query.fasta -db /var/www/html/dbvast/blastdb/indicusdb -outfmt 7 -out blastout.txt");
-$bloutfile='blastout.txt';
-
-foreach(file('blastout.txt') as $line) {
-   	if (substr($line,0,1)!='#')
-		{
-		$lines[]= $line;
-		}
-		}
-
-if (count($lines)<1)
-	{
-	echo "No similar transcript found in the database";
-	}
-
-else
-	{
-	$geneid= preg_split("/[\t]/", $lines[0]);
-	$geneid=$geneid[1];
-##generate sequence id file
-	$my_id_file = "id.fasta";
-	$handle = fopen($my_id_file, 'w') or die('Cannot open file:  '.$my_id_file); //implicitly creates file
-	fwrite($handle, $geneid);
-	fclose($handle);
-	exec("fastacmd -d blastdb/indicusdb -i id.fasta > seq_out.fasta");
-##
-?>
-
-<br><br>
-
-<?php
-$query="select * from blast where id='$geneid'";
-$result = mysql_query($query);
-$num_rows= mysql_num_rows($result);
-
-echo "<b>Results</b>";
-echo "<br><br>";
-echo "Blast Statistics <br>";
-echo "<table width=800 border=1>";
-echo "<tr>";
-echo "<td>Sequence </td>";
-echo "<td>Description</td>";
-echo "<td>Length </td>";
-echo "<td>Blast Description </td>";
-echo "<td>e-value</td>";
-echo "<td>Similarity</td>";
-echo "<td>Score</td>";
-echo "<td>Enzyme Code</td>";
-echo "<td>Enzyme Name</td>";
-echo "</tr>";
-$j=0;
-while($j<$num_rows)
-{
-echo "</tr>";
-$id=  mysql_result($result,$j,"id");
-$seqdesc=  mysql_result($result,$j,"seqdesc");
-$length=  mysql_result($result,$j,"length");
-$blastdesc=  mysql_result($result,$j,"blastdesc");
-$eval=  mysql_result($result,$j,"eval");
-$similarity=  mysql_result($result,$j,"similarity");
-$score=  mysql_result($result,$j,"score");
-$enzcode=  mysql_result($result,$j,"enzcode");
-$enzname=  mysql_result($result,$j,"enzname");
-#echo "<td><a href=seq_out.fasta target=_blank>Sequence</a> </td>";
-?>
-<td>
-<a href="#" onclick="window.open('seq_out.fasta', 'sequence' , 'toolbar=no,scrollbars=no,height=250,width=600,left=400,top=100'); return false;">Sequence</a>
-</td>
-<?php
-
-//$blast_header = "Blast Statistics\nSequence\tDescription\tLength\tBlast Description\te-value\tSimilarity\tScore\tEnzyme Code\tEnzyme Name\n";
-//$blast_stat = $blast_header . $blast_stat . "\n" . $seqdesc . "\t" . $length . "\t" . $blastdesc. "\t". $eval . "\t" . $similarity . "\t". $score. "\t". $enzcode . "\t". $enzname . "\n";
-echo "<td>".$seqdesc."</td>";
-echo "<td>".$length."</td>";
-echo "<td>".$blastdesc."</td>";
-echo "<td>".$eval."</td>";
-echo "<td>".$similarity."</td>";
-echo "<td>".$score."</td>";
-echo "<td>".$enzcode."</td>";
-echo "<td>".$enzname."</td>";
-$j=$j+1;
-echo "</tr>";
-}
-echo "</table>";
-
-$query1="select * from quality where id='$geneid'";
-$result1 = mysql_query($query1);
-$num_rows1= mysql_num_rows($result1);
-if ($num_rows1>0)
-{
-echo "<br><br>";
-echo "SNP  Statistics <br>";
-echo "<table width=800 border=1>";
-echo "<tr>";
-//echo "<td>Sequence</td>";
-echo "<td>Position</td>";
-echo "<td>Reference allele</td>";
-echo "<td>Alternate allele </td>";
-echo "<td>Phred score</td>";
-echo "<td>Depth</td>";
-echo "<td>Reference reads</td>";
-echo "<td>Alternate reads</td>";
-echo "</tr>";
-$j=0;
-
-while($j<$num_rows1)
-{
-
-
-echo "</tr>";
-$id=  mysql_result($result1,$j,"id");
-$pos=  mysql_result($result1,$j,"pos");
-$ref=  mysql_result($result1,$j,"ref");
-$alt=  mysql_result($result1,$j,"alt");
-$phred=  mysql_result($result1,$j,"phred");
-$depth=  mysql_result($result1,$j,"depth");
-$refreads=  mysql_result($result1,$j,"refreads");
-$altreads=  mysql_result($result1,$j,"altreads");
-
-?>
-
-<?php
-$snp_header = "Position\tReference allele\tAlternate allele\tPhred score\tDepth\tReference reads\tAlternate reads";
-$snp_stat_ind = $snp_stat_ind . $pos . "\t" . $ref . "\t" . $alt . "\t" . $phred . "\t" . $depth . "\t" . $refreads . "\t" . $altreads. "\n";
-//display SNP table
-echo "<td>".$pos."</td>";
-echo "<td>".$ref."</td>";
-echo "<td>".$alt."</td>";
-echo "<td>".$phred."</td>";
-echo "<td>".$depth."</td>";
-echo "<td>".$refreads."</td>";
-echo "<td>".$altreads."</td>";
-$j=$j+1;
-echo "</tr>";
-}
-echo "</table>";
-//download snp table as a text file
-echo "<br><center><a href='downloadsnps.php'>Download SNP Statistics</a></center>";
-}
-else
-{ echo "<br>The Transcript Does not contain quality SNPs";
-}}
-
-//redirecting output to a text file
-$resultsfile_ind = $snp_header . "\n" . $snp_stat_ind;
-$myfile = 'blaststats.txt';
-$handle = fopen($myfile, 'w') or die('Can the file not the open');
-fwrite($handle, $resultsfile_ind);
-fclose($handle);
-}
-### end indicus
-
-### speceis vanami
-
-if ($spsel=="3")
-{
-$seq = $_POST['seq'];
-$my_file = "query.fasta";
-$handle = fopen($my_file, 'w') or die('Cannot open file:  '.$my_file); //implicitly creates file
-fwrite($handle, $seq);
-fclose($handle);
-
-
-exec("blastn -query query.fasta -db /var/www/html/dbvast/blastdb/vanameidb -outfmt 7 -out blastout.txt");
-$bloutfile='blastout.txt';
-
-foreach(file('blastout.txt') as $line) {
-   	if (substr($line,0,1)!='#')
-		{
-		$lines[]= $line;
-		}
-		}
-
-if (count($lines)<1)
-	{
-	echo "No similar transcript found in the database";
-	}
-
-else
-	{
-	$geneid= preg_split("/[\t]/", $lines[0]);
-	$geneid=$geneid[1];
-
-##generate sequence id file
-	$my_id_file = "id.fasta";
-	$handle = fopen($my_id_file, 'w') or die('Cannot open file:  '.$my_id_file); //implicitly creates file
-	fwrite($handle, $geneid);
-	fclose($handle);
-	exec("fastacmd -d blastdb/vanameidb -i id.fasta > seq_out.fasta");
-##
-
-
-
-?>
-
-<br><br>
-
-<?php
-
-$query="select * from vanblast where id='$geneid'";
-$result = mysql_query($query);
-$num_rows= mysql_num_rows($result);
-
-echo "<b>Results</b>";
-echo "<br><br>";
-echo "Blast Statistics <br>";
-echo "<table width=800 border=1>";
-echo "<tr>";
-echo "<td>Sequence</td>";
-echo "<td>Description</td>";
-echo "<td>Length </td>";
-echo "<td>Blast Description </td>";
-echo "<td>e-value</td>";
-echo "<td>Similarity</td>";
-echo "<td>Score</td>";
-echo "<td>Enzyme Code</td>";
-echo "<td>Enzyme Name</td>";
-echo "</tr>";
-$j=0;
-while($j<$num_rows)
-{
-echo "</tr>";
-$id=  mysql_result($result,$j,"id");
-$seqdesc=  mysql_result($result,$j,"seqdesc");
-$length=  mysql_result($result,$j,"length");
-$blastdesc=  mysql_result($result,$j,"blastdesc");
-$eval=  mysql_result($result,$j,"eval");
-$similarity=  mysql_result($result,$j,"similarity");
-$score=  mysql_result($result,$j,"score");
-$enzcode=  mysql_result($result,$j,"enzcode");
-$enzname=  mysql_result($result,$j,"enzname");
-
-?>
-<td>
-<a href="#" onclick="window.open('seq_out.fasta', 'sequence' , 'toolbar=no,scrollbars=no,height=250,width=600,left=400,top=100'); return false;">Sequence</a>
-</td>
-<?php
-echo "<td>".$seqdesc."</td>";
-echo "<td>".$length."</td>";
-echo "<td>".$blastdesc."</td>";
-echo "<td>".$eval."</td>";
-echo "<td>".$similarity."</td>";
-echo "<td>".$score."</td>";
-echo "<td>".$enzcode."</td>";
-echo "<td>".$enzname."</td>";
-$j=$j+1;
-echo "</tr>";
-}
-echo "</table>";
-
-$query1="select * from vanqual where id='$geneid'";
-$result1 = mysql_query($query1);
-$num_rows1= mysql_num_rows($result1);
-if ($num_rows1>0)
-{
-echo "<br><br>";
-echo "SNP  Statistics <br>";
-echo "<table width=800 border=1>";
-echo "<tr>";
-//echo "<td>Sequence </td>";
-echo "<td>Position</td>";
-echo "<td>Reference allele</td>";
-echo "<td>Alternate allele </td>";
-echo "<td>Phred score</td>";
-echo "<td>Depth</td>";
-echo "<td>Reference reads</td>";
-echo "<td>Alternate reads</td>";
-echo "</tr>";
-$j=0;
-
-while($j<$num_rows1)
-
-{
-echo "</tr>";
-$id=  mysql_result($result1,$j,"id");
-$pos=  mysql_result($result1,$j,"pos");
-$ref=  mysql_result($result1,$j,"ref");
-$alt=  mysql_result($result1,$j,"alt");
-$phred=  mysql_result($result1,$j,"phred");
-$depth=  mysql_result($result1,$j,"depth");
-$refreads=  mysql_result($result1,$j,"refreads");
-$altreads=  mysql_result($result1,$j,"altreads");
-
-?>
-
-<?php
-$snp_header = "Position\tReference allele\tAlternate allele\tPhred score\tDepth\tReference reads\tAlternate reads";
-$snp_stat_van = $snp_stat_van . $pos . "\t" . $ref . "\t" . $alt . "\t" . $phred . "\t" . $depth . "\t" . $refreads . "\t" . $altreads. "\n";
-//display SNP table
-echo "<td>".$pos."</td>";
-echo "<td>".$ref."</td>";
-echo "<td>".$alt."</td>";
-echo "<td>".$phred."</td>";
-echo "<td>".$depth."</td>";
-echo "<td>".$refreads."</td>";
-echo "<td>".$altreads."</td>";
-$j=$j+1;
-echo "</tr>";
-}
-echo "</table>";
-
-//donwload SNP table in a text format
-echo "<br><center><a href='downloadsnps.php'>Download SNP Statistics</a></center>";
-}
-else
-{ echo "<br>The Transcript Does not contain quality SNPs";
-}}
-
-//redirect output to a text file
-$resultsfile_van = $snp_header . "\n" . $snp_stat_van;
-$myfile = 'blaststats.txt';
-$handle = fopen($myfile, 'w') or die('Can the file not the open');
-fwrite($handle, $resultsfile_van);
-fclose($handle);
-}
-### end vanamei
-
-### species aztecus
-if ($spsel=="4")
-{
-$seq = $_POST['seq'];
-$my_file = "query.fasta";
-$handle = fopen($my_file, 'w') or die('Cannot open file:  '.$my_file); //implicitly creates file
-fwrite($handle, $seq);
-fclose($handle);
-
-
-exec("blastn -query query.fasta -db /var/www/html/dbvast/blastdb/vanameidb -outfmt 7 -out blastout.txt");
-$bloutfile='blastout.txt';
-
-foreach(file('blastout.txt') as $line) {
-   	if (substr($line,0,1)!='#')
-		{
-		$lines[]= $line;
-		}
-		}
-
-if (count($lines)<1)
-	{
-	echo "No similar transcript found in the database";
-	}
-
-else
-	{
-	$geneid= preg_split("/[\t]/", $lines[0]);
-	$geneid=$geneid[1];
-
-##generate sequence id file	
-	$my_id_file = "id.fasta";
-	$handle = fopen($my_id_file, 'w') or die('Cannot open file:  '.$my_id_file); //implicitly creates file
-	fwrite($handle, $geneid);
-	fclose($handle);
-	exec("fastacmd -d blastdb/vanameidb -i id.fasta > seq_out.fasta");
-##
-
-?>
-
-<br><br>
-
-<?php
-$query="select * from vanblast where id='$geneid'";
-$result = mysql_query($query);
-$num_rows= mysql_num_rows($result);
-
-echo "<b>Results</b>";
-echo "<br><br>";
-echo "Blast Statistics <br>";
-echo "<table width=800 border=1>";
-echo "<tr>";
-echo "<td>Sequence</td>";
-echo "<td>Description</td>";
-echo "<td>Length </td>";
-echo "<td>Blast Description </td>";
-echo "<td>e-value</td>";
-echo "<td>Similarity</td>";
-echo "<td>Score</td>";
-echo "<td>Enzyme Code</td>";
-echo "<td>Enzyme Name</td>";
-echo "</tr>";
-$j=0;
-while($j<$num_rows)
-{
-echo "</tr>";
-$id=  mysql_result($result,$j,"id");
-$seqdesc=  mysql_result($result,$j,"seqdesc");
-$length=  mysql_result($result,$j,"length");
-$blastdesc=  mysql_result($result,$j,"blastdesc");
-$eval=  mysql_result($result,$j,"eval");
-$similarity=  mysql_result($result,$j,"similarity");
-$score=  mysql_result($result,$j,"score");
-$enzcode=  mysql_result($result,$j,"enzcode");
-$enzname=  mysql_result($result,$j,"enzname");
-
-?>
-<td>
-<a href="#" onclick="window.open('seq_out.fasta', 'sequence' , 'toolbar=no,scrollbars=no,height=250,width=600,left=400,top=100'); return false;">Sequence</a>
-</td>
-<?php
-echo "<td>".$seqdesc."</td>";
-echo "<td>".$length."</td>";
-echo "<td>".$blastdesc."</td>";
-echo "<td>".$eval."</td>";
-echo "<td>".$similarity."</td>";
-echo "<td>".$score."</td>";
-echo "<td>".$enzcode."</td>";
-echo "<td>".$enzname."</td>";
-$j=$j+1;
-echo "</tr>";
-}
-echo "</table>";
-
-$query1="select * from pazqual where id='$geneid'";
-$result1 = mysql_query($query1);
-$num_rows1= mysql_num_rows($result1);
-if ($num_rows1>0)
-{
-echo "<br><br>";
-echo "SNP  Statistics <br>";
-echo "<table width=800 border=1>";
-echo "<tr>";
-echo "<td>Sequence </td>";
-echo "<td>Position</td>";
-echo "<td>Reference allele</td>";
-echo "<td>Alternate allele </td>";
-echo "<td>Phred score</td>";
-echo "<td>Depth</td>";
-echo "<td>Reference reads</td>";
-echo "<td>Alternate reads</td>";
-echo "</tr>";
-$j=0;
-
-while($j<$num_rows1)
-
-{
-echo "</tr>";
-$id=  mysql_result($result1,$j,"id");
-$pos=  mysql_result($result1,$j,"pos");
-$ref=  mysql_result($result1,$j,"ref");
-$alt=  mysql_result($result1,$j,"alt");
-$phred=  mysql_result($result1,$j,"phred");
-$depth=  mysql_result($result1,$j,"depth");
-$refreads=  mysql_result($result1,$j,"refreads");
-$altreads=  mysql_result($result1,$j,"altreads");
-
-?>
-<td>
-<a href="#" onclick="window.open('seq_out.fasta', 'sequence' , 'toolbar=no,scrollbars=no,height=250,width=600,left=400,top=100'); return false;">Sequence</a>
-</td>
-<?php
-echo "<td>".$pos."</td>";
-echo "<td>".$ref."</td>";
-echo "<td>".$alt."</td>";
-echo "<td>".$phred."</td>";
-echo "<td>".$depth."</td>";
-echo "<td>".$refreads."</td>";
-echo "<td>".$altreads."</td>";
-$j=$j+1;
-echo "</tr>";
-}
-echo "</table>";
-}
-else
-{ echo "<br>The Transcript Does not contain quality SNPs";
-}}}
-### end aztecus
-
-}
-
-?>
-</form>
-</td></tr>
-</table>
-<script>
-function input(){
-	var objDropDownMenu = document.getElementsByName("species")[0];
-   var text = "AGTTGTCAACGAGTGGGACGACGGTAGGGAGTGTCTACGCCCTCCTTGGATTATAGGAAAATGAGGGTTA TCCTGGTCTTGTCGGTAGTGGCTGTTGCAGTCAATGCCAACAGCCATTTCCTCTCGGACAAATTTATCAA GTTGCTTCAGAGTGAGGATTCTACATGGGAGGCCGGAAGGAACTTCAACAAGCACCTCTCCATAAGGTAC TTCCGACGACTCATGGGTGTCCATCCCGATTCCAAATACCACATGCCCAAGTATGAAGTTCACCAGATTC CCGAGAACTTTGAATTGCCCAAAGAGTTTGACTCCAGAGCTGCATGGCCGATGTGTCCCACAATTGGTGA AATTCGTGATCAGGGTTCCTGTGGATCGTGCTGGGCATTTGGAGCTGTAGAGGTGATGAGTGACCGGCAG TGTATCCACAGTAAGGGCAAGAGCAACTTCCACTATTCTGCAGAGAATCTTGTGTCCTGTTGCCACCTCT GTGGTTTTGGATGTAACGGAGGCTTCCCAGGTGCAGCTTTCAAGTACTGGGTGCATAGTGGTATTGTCTC AGGGGGCTCGTTTAATTCCACTCAGGGATGTCAGCCCTATGAGATTGCTCCCTGTGAACATCACGTCCCA GGACCCCGACCCAAGTGCTCTGAGGGCGGCGGCACCCCAAAGTGTGCCAAGACATGCGAGAAGGGCTACA TAGTGGACTACGAGAGTGATTTGCATCATGGAGGCAAAGCATACAGCATCATGAAAGATGAAGACCAAAT TAAGTACGAGATCATGAAGAACGGGCCTGTGGAAGGAGCTTTCACCGTTTATGTGGACTTCCTTCACTAC AAGTCTGGTGTGTACCAGCACCGCCATGGCTTACCTTTGGGTGGACATGCCATCCGTGTCCTTGGATGGG GCGAAGAGAATGGTACTCCCTATTGGCTGTGTGCCAATTCATGGAACACCGACTGGGGTGACAATGGTCT GTTCAAGATTCTAAGAGGTTCAGATCACTGTGGTATTGAGAGTGAAATTTCAGCTGGGTTGCCTAAGTTG AATTAGTAACATGTATGATGGCAGTTCAAGGTTTCTTTTGCATGGTCAAAAAAAGTTAGAAATTGATATT AATGTAAGGTAGGCACGTCCCAAGTTTTAGTCAGGTATGGATTCTTTACTTATTTCTTAAAACGGCCATT GTTATTTCTTCATGACTGTACTCATGGTCTTCACTCCAATAGGGAATGTTAATCCAGTGATGTGGGATTT TCATTCAAAAGCATTGCCCTGTATTGTATTTTGTGTAGCTAATGTGCTGGTACCTCTGACATACAAGTTT TATGTAACTTTTCACATTTTCTTTGTGAAGCTAGATATAGTGATGTTGAACAGAAATTAAGATTTCATGT TGCTGAACTGTGATAATATGTCACAAAATACAACAACGCTAACAAAAAATGAAATAAAACATTCCAGGTT ATGTGTAATCATTAGTTTATATTTCTTTTCTGATTTTGATGTTTGTAAAGAAATAAATGTCTGATGTTCT GATAATAAATTTAATTTTACAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-
-    document.forms.form1.seq.value = text;
-
-    objDropDownMenu.options[2].selected = true;
-
-setTimeout(function(){alert("Example data is loaded, please click Submit query button"); }, 500);
-
-}
-</script>
-
+<?php session_start() ?>
+
+    
+    <?php include "include/header.php" ?>
+    <?php $_SESSION['table_name'] = "dbvast_vannamei"; ?>
+
+    <div class="logos">
+        <div class="logo1">
+            <img src="image/cibalogo.jpg" alt="Logo 2">
+        </div>
+        <div class="logo2">
+            <img src="image/title.jpg" alt="Logo 3">
+        </div>
+    </div>
+
+    <form id="form1" name="form1" method="post" autocomplete="off">
+        <div class="main-container">
+            <h2>Select your species: </h2>
+            <div class="radio-buttons">
+                <label class="custom-radio">
+                <input type="radio" name="table" value="dbvast_vannamei" checked>
+                    <span class="radio-btn"><i class="las la-check"></i>
+                        <div class="hobbies-icon">
+                            <!--<i class="fa-light fa-shrimp fa-sm"></i>-->
+                            <h3>Penaeus vannamei</h3>
+                        </div>
+                    </span>
+                </label>
+                <label class="custom-radio">
+                <input type="radio" name="table" value="dbvast_indicus">
+                    <span class="radio-btn"><i class="las la-check"></i>
+                        <div class="hobbies-icon">
+                            <!--<i class="las la-futbol"></i>-->
+                            <h3>Penaeus indicus</h3>
+                        </div>
+                    </span>
+                </label>
+            </div>
+        </div>
+
+        <div class="wrapper">
+            <h3>Enter the Protein ID or Name</h3>
+            <div class="container">
+                <div class="search_wrap">
+                    <div id='error-message'></div>
+                    <div class="search_box">
+                        <input type="text" class="input" name="search" id="search" placeholder="Search...">
+
+                        <input type="submit" name="submit" value="search" id="submit">
+                        <div class="list-wrapper">
+                            <div class="list_group" id="show-list"></div>
+                        </div>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+        </div>
+
+    </form>
+
+    <!--<div class="horizontal-line">
+        <hr class="line1">
+        <span class="text">Or Search by</span>
+        <hr class="line2">
+    </div>-->
+
+    <form name='form2' method="POST" action="gettext.php">
+        <div class='textarea-container'>
+            <h3>Enter the Nucleotide Sequence:</h3>
+
+            <div class='textarea-box'>
+                <div class="error-wrapper">
+                    <div id='error-message2'></div>
+                    <textarea id="textarea" name="textarea" rows="8" cols="100" placeholder="Type the sequence here..." style="resize: none;"></textarea>
+
+                </div>
+                <input type="submit" value="Submit" ">
+            </div>
+        </div>
+
+    </form>
+
+    <br>
+    <br>
+    <br>
+
+    <footer>
+        <div class="container">
+            <div class="sec aboutus">
+                <h2>About Us</h2>
+                <p>dbVAST is a database of Single Nucleotide Polymorphisms (SNPs) in transcripts of two
+                    shrimp species, Penaeus indicus and Penaeus vannamei. Users can search the database with a
+                    query sequence and extract SNPs in it. The major components of dbVAST database are SNPs
+                    in coding sequences and its significance. The dbVAST is intended to benefit researchers and
+                    academicians by showcasing variations in the candidate coding sequences of shrimp.
+                </p>
+
+                <ul class="social">
+                    <li><a href="https://www.facebook.com/icarciba"><i class="lab la-facebook"></i></i></a></li>
+                    <li><a href="https://twitter.com/icarciba"><i class="lab la-twitter"></i></i></a></li>
+                    <li><a href="https://www.youtube.com/c/icarciba/videos"><i class="lab la-youtube"></i></i></a></li>
+
+                </ul>
+            </div>
+            <div class="sec quicklinks">
+                <h2>Quicklinks</h2>
+                <ul>
+                    <li><a href="index.php">Home</a></li>
+                    <li><a href="about.php">About</a></li>
+                    <li><a href="faq.php">FAQ</a></li>
+                    <li><a href="contact.php">Contact</a></li>
+                </ul>
+            </div>
+            <div class="sec contact">
+                <h2>Contact Info</h2>
+                <ul class="info">
+                    <li>
+                        <span><i class="las la-map-marker-alt"></i></span>
+                        <span>ICAR-Central Institute of Brackishwater
+                            Aquaculture,<br>
+                            75 Santhome High Road, MRC Nagar, RA Puram,<br>
+                            Chennai - 600 028
+                        </span>
+                    </li>
+                    <li>
+                        <span><i class="las la-envelope"></i></span>
+                        <span>Vinaya.Katneni@icar.gov.in</span>
+                    </li>
+                </ul>
+
+            </div>
+
+        </div>
+
+    </footer>
+    <div class="copyrightText">
+        <p>
+            Copyright © ICAR-Central Institute of Brackishwater Aquaculture All Rights Reserved.
+        </p>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js" integrity="sha384-w76AqPfDkMBDXo30jS1Sgez6pr3x5MlQ1ZAGC+nuZB+EYdgRZgiwxhTBTkF7CXvN" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.6.3.js" integrity="sha256-nQLuAZGRRcILA+6dMBOvcRh5Pe310sBpanc6+QBmyVM=" crossorigin="anonymous"></script>
 
 </body>
-</center>
+
 </html>
-//END
